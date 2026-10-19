@@ -1,0 +1,47 @@
+# AlgoDesk India — App + PostgreSQL
+#   docker compose up -d --build     → http://localhost:3000
+#   docker compose logs -f app       → logs
+#   docker compose down              → stop (data stays in the algodesk_pg volume)
+# Security: put APP_SECRET=<random 64 hex> (and optionally ADMIN_USERNAME / ADMIN_PASSWORD)
+# in a .env file next to this file. Otherwise read the setup code: docker compose logs app
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: algodesk-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_db
+      TZ: Asia/Kolkata
+    volumes:
+      - algodesk_pg:/var/lib/postgresql/data
+    # ports:
+    #   - "5433:5432"   # uncomment to open the DB from your PC (pgAdmin / backups)
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    container_name: algodesk-app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
+      APP_SECRET: ${APP_SECRET:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      TZ: Asia/Kolkata
+    volumes:
+      - algodesk_data:/app/.algodesk
+    ports:
+      - "3000:3000"
+
+volumes:
+  algodesk_pg:
+  algodesk_data:
